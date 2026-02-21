@@ -1,0 +1,44 @@
+# ─── Credentials (NEVER commit these) ───────────────────────────────────────
+.config/
+*.yaml
+*.json
+!package.json
+!package-lock.json
+!pyproject.toml
+
+# ─── MCP server venvs ────────────────────────────────────────────────────────
+mcp-servers/**/.venv/
+mcp-servers/**/token_cache/
+mcp-servers/**/*.pyc
+mcp-servers/**/__pycache__/
+
+# ─── Node ─────────────────────────────────────────────────────────────────────
+node_modules/
+src/**/node_modules/
+
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ─── Generated outputs (keep folder, ignore contents) ─────────────────────────
+outputs/vfairs/*.md
+outputs/vfairs/*.txt
+outputs/vfairs/*.csv
+
+# ─── OS files ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Env files ────────────────────────────────────────────────────────────────
+.env
+*.env
+
+# ─── Generated .mcp.json (each person has their own paths) ───────────────────
+.mcp.json

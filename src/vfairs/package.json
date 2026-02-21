@@ -1,0 +1,19 @@
+{
+  "name": "vfairs-morning-brief",
+  "version": "1.0.0",
+  "description": "Morning briefing automation for vFairs - starting with HubSpot MQL tracking",
+  "main": "hubspot-mql-report.js",
+  "scripts": {
+    "mql-report": "node hubspot-mql-report.js",
+    "top-posts": "node top-posts.js"
+  },
+  "author": "Aatir Abdul Rauf",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/web-api": "^7.13.0",
+    "axios": "^1.6.0",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^16.3.1",
+    "googleapis": "^170.1.0"
+  }
+}
