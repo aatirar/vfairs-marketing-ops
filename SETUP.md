@@ -231,7 +231,7 @@ If either command returns a version number, you're good.
 ## Step 9 — Install Google Ads MCP server
 
 ```
-pipx install git+https://github.com/stephencollins/google-ads-mcp.git
+pipx install git+https://github.com/googleads/google-ads-mcp.git
 ```
 
 > This installs the custom Google Ads MCP server via pipx.
