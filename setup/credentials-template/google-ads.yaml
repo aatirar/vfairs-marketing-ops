@@ -1,0 +1,13 @@
+# google-ads.yaml — Google Ads API credentials
+#
+# Aatir will send you a filled version of this file with the values below
+# pre-populated (except refresh_token). Place it at: .config/google-ads.yaml
+#
+# Then run: python setup/generate-google-ads-token.py
+# to add your personal refresh_token.
+
+developer_token: YOUR_DEVELOPER_TOKEN
+client_id: YOUR_CLIENT_ID
+client_secret: YOUR_CLIENT_SECRET
+refresh_token: YOUR_REFRESH_TOKEN_GOES_HERE_AFTER_RUNNING_AUTH_SCRIPT
+use_proto_plus: true

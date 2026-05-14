@@ -5,18 +5,50 @@
 !package.json
 !package-lock.json
 !pyproject.toml
+!.claude/skills/**/*.json
+!.claude/agents/**/*.json
+!scripts/workflows/*.json
+!setup/credentials-template/*.yaml
 
-# ─── MCP server venvs ────────────────────────────────────────────────────────
+# ─── Env files ────────────────────────────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ─── Claude Code per-user settings ──────────────────────────────────────────
+.claude/settings.local.json
+.claude/agent-memory/
+
+# ─── MCP server local state ─────────────────────────────────────────────────
 mcp-servers/**/.venv/
 mcp-servers/**/token_cache/
 mcp-servers/**/*.pyc
 mcp-servers/**/__pycache__/
 
-# ─── Node ─────────────────────────────────────────────────────────────────────
+# ─── Generated .mcp.json (each person has their own paths) ──────────────────
+.mcp.json
+
+# ─── Real business data (synced from shared Drive, never committed) ─────────
+data/**
+!data/.gitkeep
+!data/README.md
+
+# ─── Generated outputs (folder kept, contents ignored) ──────────────────────
+outputs/**
+!outputs/.gitkeep
+!outputs/README.md
+
+# ─── Per-marketer scratch space ─────────────────────────────────────────────
+workspaces/**
+!workspaces/.gitkeep
+!workspaces/README.md
+
+# ─── Node ────────────────────────────────────────────────────────────────────
 node_modules/
+scripts/**/node_modules/
 src/**/node_modules/
 
-# ─── Python ───────────────────────────────────────────────────────────────────
+# ─── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -26,19 +58,7 @@ __pycache__/
 dist/
 build/
 
-# ─── Generated outputs (keep folder, ignore contents) ─────────────────────────
-outputs/vfairs/*.md
-outputs/vfairs/*.txt
-outputs/vfairs/*.csv
-
-# ─── OS files ─────────────────────────────────────────────────────────────────
+# ─── OS files ────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# ─── Env files ────────────────────────────────────────────────────────────────
-.env
-*.env
-
-# ─── Generated .mcp.json (each person has their own paths) ───────────────────
-.mcp.json
