@@ -1,0 +1,242 @@
+{
+  "name": "Morning MQL Quality Report",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "morning-mql-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "morning-mql-report"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate date ranges for MQL comparison\nconst now = new Date();\n\n// Past 7 days (current period)\nconst currentEnd = new Date();\nconst currentStart = new Date();\ncurrentStart.setDate(currentStart.getDate() - 7);\n\n// Previous 7 days (day 8-14 ago)\nconst previousEnd = new Date();\npreviousEnd.setDate(previousEnd.getDate() - 8);\nconst previousStart = new Date();\npreviousStart.setDate(previousStart.getDate() - 15);\n\n// Same period last year (7 days, one year ago)\nconst lastYearEnd = new Date();\nlastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1);\nconst lastYearStart = new Date(lastYearEnd);\nlastYearStart.setDate(lastYearStart.getDate() - 7);\n\nreturn {\n  json: {\n    currentPeriod: {\n      start: currentStart.getTime(),\n      end: currentEnd.getTime(),\n      label: `${currentStart.toLocaleDateString()} - ${currentEnd.toLocaleDateString()}`\n    },\n    previousPeriod: {\n      start: previousStart.getTime(),\n      end: previousEnd.getTime(),\n      label: `${previousStart.toLocaleDateString()} - ${previousEnd.toLocaleDateString()}`\n    },\n    lastYearPeriod: {\n      start: lastYearStart.getTime(),\n      end: lastYearEnd.getTime(),\n      label: `${lastYearStart.toLocaleDateString()} - ${lastYearEnd.toLocaleDateString()}`\n    },\n    hubspotToken: 'REPLACE_WITH_HUBSPOT_TOKEN',\n    mqlListId: '873'\n  }\n};"
+      },
+      "id": "calculate-dates",
+      "name": "Calculate Date Ranges",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.hubspotToken}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{$json.currentPeriod.start}}\",\n          \"highValue\": \"{{$json.currentPeriod.end}}\"\n        },\n        {\n          \"operator\": \"IN_LIST\",\n          \"value\": \"{{$json.mqlListId}}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"createdate\",\n    \"industry\",\n    \"annualrevenue\",\n    \"jobtitle\",\n    \"company\",\n    \"hs_lead_status\"\n  ],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "id": "fetch-current-mqls",
+      "name": "Fetch Current Period MQLs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.hubspotToken}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{$json.previousPeriod.start}}\",\n          \"highValue\": \"{{$json.previousPeriod.end}}\"\n        },\n        {\n          \"operator\": \"IN_LIST\",\n          \"value\": \"{{$json.mqlListId}}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"createdate\",\n    \"industry\",\n    \"annualrevenue\",\n    \"jobtitle\"\n  ],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "id": "fetch-previous-mqls",
+      "name": "Fetch Previous Period MQLs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.hubspotToken}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{$json.lastYearPeriod.start}}\",\n          \"highValue\": \"{{$json.lastYearPeriod.end}}\"\n        },\n        {\n          \"operator\": \"IN_LIST\",\n          \"value\": \"{{$json.mqlListId}}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"createdate\",\n    \"industry\",\n    \"annualrevenue\",\n    \"jobtitle\"\n  ],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "id": "fetch-lastyear-mqls",
+      "name": "Fetch Last Year Period MQLs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Combine all three period results and analyze lead quality\nconst currentResults = $input.all()[0].json.results || [];\nconst previousResults = $input.all()[1].json.results || [];\nconst lastYearResults = $input.all()[2].json.results || [];\n\n// Helper function to analyze lead quality\nfunction analyzeLeadQuality(leads) {\n  const quality = {\n    totalLeads: leads.length,\n    industries: {},\n    revenueRanges: {\n      under100k: 0,\n      '100k-1M': 0,\n      '1M-10M': 0,\n      '10M-100M': 0,\n      over100M: 0,\n      unknown: 0\n    },\n    jobTitles: {\n      cLevel: 0,\n      director: 0,\n      manager: 0,\n      coordinator: 0,\n      other: 0,\n      unknown: 0\n    },\n    topIndustries: [],\n    topCompanies: []\n  };\n  \n  const companies = {};\n  \n  leads.forEach(lead => {\n    const props = lead.properties;\n    \n    // Analyze industry\n    const industry = props.industry || 'Unknown';\n    quality.industries[industry] = (quality.industries[industry] || 0) + 1;\n    \n    // Analyze revenue\n    const revenue = parseFloat(props.annualrevenue) || 0;\n    if (revenue === 0) {\n      quality.revenueRanges.unknown++;\n    } else if (revenue < 100000) {\n      quality.revenueRanges.under100k++;\n    } else if (revenue < 1000000) {\n      quality.revenueRanges['100k-1M']++;\n    } else if (revenue < 10000000) {\n      quality.revenueRanges['1M-10M']++;\n    } else if (revenue < 100000000) {\n      quality.revenueRanges['10M-100M']++;\n    } else {\n      quality.revenueRanges.over100M++;\n    }\n    \n    // Analyze job title\n    const jobTitle = (props.jobtitle || '').toLowerCase();\n    if (!jobTitle) {\n      quality.jobTitles.unknown++;\n    } else if (jobTitle.includes('ceo') || jobTitle.includes('cto') || jobTitle.includes('cfo') || jobTitle.includes('cmo') || jobTitle.includes('chief')) {\n      quality.jobTitles.cLevel++;\n    } else if (jobTitle.includes('director') || jobTitle.includes('vp') || jobTitle.includes('vice president') || jobTitle.includes('head of')) {\n      quality.jobTitles.director++;\n    } else if (jobTitle.includes('manager')) {\n      quality.jobTitles.manager++;\n    } else if (jobTitle.includes('coordinator') || jobTitle.includes('specialist') || jobTitle.includes('associate')) {\n      quality.jobTitles.coordinator++;\n    } else {\n      quality.jobTitles.other++;\n    }\n    \n    // Track companies\n    const company = props.company || 'Unknown';\n    companies[company] = (companies[company] || 0) + 1;\n  });\n  \n  // Get top 5 industries\n  quality.topIndustries = Object.entries(quality.industries)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([industry, count]) => ({ industry, count }));\n  \n  // Get top 5 companies\n  quality.topCompanies = Object.entries(companies)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([company, count]) => ({ company, count }));\n  \n  return quality;\n}\n\n// Calculate quality scores\nconst currentQuality = analyzeLeadQuality(currentResults);\nconst previousQuality = analyzeLeadQuality(previousResults);\nconst lastYearQuality = analyzeLeadQuality(lastYearResults);\n\n// Calculate changes\nfunction calculateChange(current, previous) {\n  if (previous === 0) return current > 0 ? 100 : 0;\n  return parseFloat((((current - previous) / previous) * 100).toFixed(1));\n}\n\nconst vsPrevious = {\n  absolute: currentQuality.totalLeads - previousQuality.totalLeads,\n  percentage: calculateChange(currentQuality.totalLeads, previousQuality.totalLeads)\n};\n\nconst vsLastYear = {\n  absolute: currentQuality.totalLeads - lastYearQuality.totalLeads,\n  percentage: calculateChange(currentQuality.totalLeads, lastYearQuality.totalLeads)\n};\n\n// Calculate quality score (higher revenue + higher seniority = better quality)\nfunction calculateQualityScore(quality) {\n  const highValueRevenue = quality.revenueRanges['10M-100M'] + quality.revenueRanges.over100M;\n  const seniorTitles = quality.jobTitles.cLevel + quality.jobTitles.director;\n  const totalLeads = quality.totalLeads || 1;\n  \n  const revenueScore = (highValueRevenue / totalLeads) * 50;\n  const seniorityScore = (seniorTitles / totalLeads) * 50;\n  \n  return parseFloat((revenueScore + seniorityScore).toFixed(1));\n}\n\nconst currentQualityScore = calculateQualityScore(currentQuality);\nconst previousQualityScore = calculateQualityScore(previousQuality);\nconst lastYearQualityScore = calculateQualityScore(lastYearQuality);\n\n// Generate insights\nconst insights = [];\n\nif (vsPrevious.absolute < 0) {\n  insights.push(`⚠️ MQL volume down ${Math.abs(vsPrevious.absolute)} leads vs previous week`);\n} else if (vsPrevious.absolute > 0) {\n  insights.push(`✅ MQL volume up ${vsPrevious.absolute} leads vs previous week`);\n}\n\nif (currentQualityScore > previousQualityScore) {\n  insights.push(`✅ Lead quality improved (score: ${currentQualityScore} vs ${previousQualityScore})`);\n} else if (currentQualityScore < previousQualityScore) {\n  insights.push(`⚠️ Lead quality declined (score: ${currentQualityScore} vs ${previousQualityScore})`);\n}\n\nconst highValueLeads = currentQuality.revenueRanges['10M-100M'] + currentQuality.revenueRanges.over100M;\nif (highValueLeads > 0) {\n  insights.push(`💎 ${highValueLeads} high-value leads (>$10M revenue)`);\n}\n\nconst seniorLeads = currentQuality.jobTitles.cLevel + currentQuality.jobTitles.director;\nif (seniorLeads > 0) {\n  insights.push(`👔 ${seniorLeads} senior decision-makers (C-level/Director+)`);\n}\n\nif (currentQuality.topIndustries.length > 0) {\n  const topIndustry = currentQuality.topIndustries[0];\n  insights.push(`🏢 Top industry: ${topIndustry.industry} (${topIndustry.count} leads)`);\n}\n\nreturn {\n  json: {\n    reportDate: new Date().toISOString(),\n    summary: {\n      currentPeriod: {\n        label: $('Calculate Date Ranges').item.json.currentPeriod.label,\n        totalMQLs: currentQuality.totalLeads,\n        qualityScore: currentQualityScore\n      },\n      previousPeriod: {\n        label: $('Calculate Date Ranges').item.json.previousPeriod.label,\n        totalMQLs: previousQuality.totalLeads,\n        qualityScore: previousQualityScore\n      },\n      lastYearPeriod: {\n        label: $('Calculate Date Ranges').item.json.lastYearPeriod.label,\n        totalMQLs: lastYearQuality.totalLeads,\n        qualityScore: lastYearQualityScore\n      },\n      comparisons: {\n        vsPreviousWeek: vsPrevious,\n        vsLastYear: vsLastYear\n      }\n    },\n    leadQuality: {\n      current: currentQuality,\n      previous: previousQuality,\n      lastYear: lastYearQuality\n    },\n    insights: insights,\n    rawData: {\n      currentLeads: currentResults,\n      previousLeads: previousResults,\n      lastYearLeads: lastYearResults\n    }\n  }\n};"
+      },
+      "id": "analyze-results",
+      "name": "Analyze Results & Quality",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Ranges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Date Ranges": {
+      "main": [
+        [
+          {
+            "node": "Fetch Current Period MQLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Previous Period MQLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Last Year Period MQLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Current Period MQLs": {
+      "main": [
+        [
+          {
+            "node": "Analyze Results & Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Previous Period MQLs": {
+      "main": [
+        [
+          {
+            "node": "Analyze Results & Quality",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Last Year Period MQLs": {
+      "main": [
+        [
+          {
+            "node": "Analyze Results & Quality",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Analyze Results & Quality": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-14T00:00:00.000Z",
+  "versionId": "1"
+}

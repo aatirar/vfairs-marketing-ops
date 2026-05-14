@@ -15,9 +15,12 @@ The shared AI-powered toolkit for the vFairs marketing team. Runs inside Claude 
 
 ## Get started
 
-1. Read **[docs/ONBOARDING.md](docs/ONBOARDING.md)** end to end. About 15 minutes from clone to first skill run.
-2. Get the shared vault link from Aatir or the #marketing-ops Slack channel.
-3. Open the repo in Claude Code: `cd vFairs-Marketing-OS && claude`.
+1. Get the shared vault link from Aatir or the #marketing-ops Slack channel.
+2. Install Claude Code: `npm install -g @anthropic-ai/claude-code` (need Node.js first).
+3. Clone this repo and run `claude` from the repo root.
+4. Type **`/onboarding`** — an interactive wizard walks you through every setup step, runs the commands, and verifies your credentials. ~15 minutes.
+
+If you'd rather do it manually, [docs/ONBOARDING.md](docs/ONBOARDING.md) has the full step-by-step.
 
 ---
 

@@ -1,0 +1,26 @@
+# Normalize line endings on commit. Working-tree files stay LF on every OS.
+# Without this, Windows clones convert files to CRLF and every file shows as modified.
+* text=auto eol=lf
+
+# Binary files (no normalization)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.mp4 binary
+*.mp3 binary
+
+# Windows batch files stay CRLF (required by cmd.exe)
+*.bat eol=crlf
+*.cmd eol=crlf
+*.ps1 eol=crlf
+
+# Shell scripts stay LF (required by sh/bash)
+*.sh eol=lf
+*.py eol=lf

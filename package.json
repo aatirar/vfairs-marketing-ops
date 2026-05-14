@@ -1,0 +1,24 @@
+{
+  "name": "vfairs-marketing-os",
+  "version": "0.2.0",
+  "description": "AI-powered marketing toolkit for the vFairs marketing team. Runs inside Claude Code with live data connectors.",
+  "private": true,
+  "scripts": {
+    "verify": "node scripts/utils/verify-setup.js",
+    "mql-report": "node scripts/reporting/mql-report-sheets.js",
+    "morning-mql": "node scripts/reporting/morning-mql.js",
+    "whale-finder": "node scripts/analysis/whales/whale-finder.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@slack/web-api": "^7.13.0",
+    "axios": "^1.6.0",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^16.3.1",
+    "googleapis": "^170.1.0",
+    "xlsx": "^0.18.5"
+  }
+}

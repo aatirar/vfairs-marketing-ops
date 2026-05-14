@@ -1,0 +1,356 @@
+{
+  "name": "vFairs Weekly HubSpot Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Every Monday 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "Runs every Monday at 8:00 AM Dubai time"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate date ranges for comparisons\nconst now = new Date();\n\n// This week (past 7 days)\nconst thisWeekEnd = new Date(now);\nconst thisWeekStart = new Date(now);\nthisWeekStart.setDate(thisWeekStart.getDate() - 7);\n\n// Previous week (8-14 days ago)\nconst prevWeekEnd = new Date(thisWeekStart);\nconst prevWeekStart = new Date(prevWeekEnd);\nprevWeekStart.setDate(prevWeekStart.getDate() - 7);\n\n// Same week last year\nconst lastYearEnd = new Date(now);\nlastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1);\nconst lastYearStart = new Date(lastYearEnd);\nlastYearStart.setDate(lastYearStart.getDate() - 7);\n\nreturn [\n  {\n    json: {\n      thisWeek: {\n        start: thisWeekStart.getTime(),\n        end: thisWeekEnd.getTime(),\n        label: `${thisWeekStart.toLocaleDateString()} - ${thisWeekEnd.toLocaleDateString()}`\n      },\n      prevWeek: {\n        start: prevWeekStart.getTime(),\n        end: prevWeekEnd.getTime(),\n        label: `${prevWeekStart.toLocaleDateString()} - ${prevWeekEnd.toLocaleDateString()}`\n      },\n      lastYear: {\n        start: lastYearStart.getTime(),\n        end: lastYearEnd.getTime(),\n        label: `${lastYearStart.toLocaleDateString()} - ${lastYearEnd.toLocaleDateString()}`\n      },\n      reportDate: now.toLocaleDateString('en-US', { \n        weekday: 'long', \n        year: 'numeric', \n        month: 'long', \n        day: 'numeric' \n      })\n    }\n  }\n];"
+      },
+      "name": "Calculate Date Ranges",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.thisWeek.start }}\",\n          \"highValue\": \"{{ $json.thisWeek.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\", \"email\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get This Week Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.prevWeek.start }}\",\n          \"highValue\": \"{{ $json.prevWeek.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get Previous Week Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.lastYear.start }}\",\n          \"highValue\": \"{{ $json.lastYear.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get Last Year Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.thisWeek.start }}\",\n          \"highValue\": \"{{ $json.thisWeek.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\", \"dealname\", \"amount\", \"dealstage\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get This Week Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.prevWeek.start }}\",\n          \"highValue\": \"{{ $json.prevWeek.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\", \"amount\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get Previous Week Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_HUBSPOT_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"BETWEEN\",\n          \"value\": \"{{ $json.lastYear.start }}\",\n          \"highValue\": \"{{ $json.lastYear.end }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"createdate\", \"amount\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "name": "Get Last Year Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Get all the data from previous nodes\nconst dateRanges = $node[\"Calculate Date Ranges\"].json;\nconst thisWeekContacts = $node[\"Get This Week Contacts\"].json;\nconst prevWeekContacts = $node[\"Get Previous Week Contacts\"].json;\nconst lastYearContacts = $node[\"Get Last Year Contacts\"].json;\nconst thisWeekDeals = $node[\"Get This Week Deals\"].json;\nconst prevWeekDeals = $node[\"Get Previous Week Deals\"].json;\nconst lastYearDeals = $node[\"Get Last Year Deals\"].json;\n\n// Helper function to filter for MQL list membership\nfunction filterForMQLList(contacts, listId = \"873\") {\n  // Since we can't filter by list in search API, we'll count all contacts\n  // In a real scenario, you'd need to check each contact's list membership\n  // For now, we'll use total contacts as proxy\n  return contacts.results || [];\n}\n\n// Helper function to calculate percentage change\nfunction calculateChange(current, previous) {\n  if (previous === 0) return current > 0 ? 100 : 0;\n  return ((current - previous) / previous) * 100;\n}\n\n// Helper function to calculate total deal value\nfunction calculateDealValue(deals) {\n  const results = deals.results || [];\n  return results.reduce((sum, deal) => {\n    const amount = parseFloat(deal.properties?.amount || 0);\n    return sum + amount;\n  }, 0);\n}\n\n// Calculate contact metrics\nconst thisWeekContactsCount = (thisWeekContacts.results || []).length;\nconst prevWeekContactsCount = (prevWeekContacts.results || []).length;\nconst lastYearContactsCount = (lastYearContacts.results || []).length;\n\nconst contactsWoWChange = calculateChange(thisWeekContactsCount, prevWeekContactsCount);\nconst contactsYoYChange = calculateChange(thisWeekContactsCount, lastYearContactsCount);\n\n// Calculate deal metrics\nconst thisWeekDealsCount = (thisWeekDeals.results || []).length;\nconst prevWeekDealsCount = (prevWeekDeals.results || []).length;\nconst lastYearDealsCount = (lastYearDeals.results || []).length;\n\nconst thisWeekDealValue = calculateDealValue(thisWeekDeals);\nconst prevWeekDealValue = calculateDealValue(prevWeekDeals);\nconst lastYearDealValue = calculateDealValue(lastYearDeals);\n\nconst dealsWoWChange = calculateChange(thisWeekDealsCount, prevWeekDealsCount);\nconst dealsYoYChange = calculateChange(thisWeekDealsCount, lastYearDealsCount);\n\nconst dealValueWoWChange = calculateChange(thisWeekDealValue, prevWeekDealValue);\nconst dealValueYoYChange = calculateChange(thisWeekDealValue, lastYearDealValue);\n\n// Format currency\nfunction formatCurrency(amount) {\n  return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n}\n\n// Format percentage\nfunction formatPercent(value) {\n  const sign = value >= 0 ? '+' : '';\n  return sign + value.toFixed(1) + '%';\n}\n\n// Build the report\nconst report = `\n📊 vFAIRS WEEKLY HUBSPOT REPORT\n${'='.repeat(50)}\nReport Date: ${dateRanges.reportDate}\nPeriod: ${dateRanges.thisWeek.label}\n${'='.repeat(50)}\n\n📧 NEW LEADS (CONTACTS)\n${'-'.repeat(50)}\nThis Week:     ${thisWeekContactsCount} leads\nPrevious Week: ${prevWeekContactsCount} leads\nSame Week 2025: ${lastYearContactsCount} leads\n\nWeek-over-Week: ${formatPercent(contactsWoWChange)} ${contactsWoWChange >= 0 ? '📈' : '📉'}\nYear-over-Year: ${formatPercent(contactsYoYChange)} ${contactsYoYChange >= 0 ? '📈' : '📉'}\n\n💼 NEW DEALS\n${'-'.repeat(50)}\nThis Week:     ${thisWeekDealsCount} deals\nPrevious Week: ${prevWeekDealsCount} deals  \nSame Week 2025: ${lastYearDealsCount} deals\n\nWeek-over-Week: ${formatPercent(dealsWoWChange)} ${dealsWoWChange >= 0 ? '📈' : '📉'}\nYear-over-Year: ${formatPercent(dealsYoYChange)} ${dealsYoYChange >= 0 ? '📈' : '📉'}\n\n💰 DEAL VALUE\n${'-'.repeat(50)}\nThis Week:     ${formatCurrency(thisWeekDealValue)}\nPrevious Week: ${formatCurrency(prevWeekDealValue)}\nSame Week 2025: ${formatCurrency(lastYearDealValue)}\n\nWeek-over-Week: ${formatPercent(dealValueWoWChange)} ${dealValueWoWChange >= 0 ? '📈' : '📉'}\nYear-over-Year: ${formatPercent(dealValueYoYChange)} ${dealValueYoYChange >= 0 ? '📈' : '📉'}\n\n${'='.repeat(50)}\n\n🎯 KEY INSIGHTS:\n• Average deal size this week: ${formatCurrency(thisWeekDealsCount > 0 ? thisWeekDealValue / thisWeekDealsCount : 0)}\n• Lead-to-Deal ratio: ${thisWeekContactsCount > 0 ? ((thisWeekDealsCount / thisWeekContactsCount) * 100).toFixed(1) : 0}%\n${thisWeekContactsCount > prevWeekContactsCount ? '✅ Lead generation is UP!' : '⚠️ Lead generation needs attention'}\n${thisWeekDealValue > prevWeekDealValue ? '✅ Deal value is UP!' : '⚠️ Deal value needs attention'}\n`;\n\nreturn [\n  {\n    json: {\n      report: report,\n      data: {\n        contacts: {\n          thisWeek: thisWeekContactsCount,\n          prevWeek: prevWeekContactsCount,\n          lastYear: lastYearContactsCount,\n          wowChange: contactsWoWChange,\n          yoyChange: contactsYoYChange\n        },\n        deals: {\n          count: {\n            thisWeek: thisWeekDealsCount,\n            prevWeek: prevWeekDealsCount,\n            lastYear: lastYearDealsCount,\n            wowChange: dealsWoWChange,\n            yoyChange: dealsYoYChange\n          },\n          value: {\n            thisWeek: thisWeekDealValue,\n            prevWeek: prevWeekDealValue,\n            lastYear: lastYearDealValue,\n            wowChange: dealValueWoWChange,\n            yoyChange: dealValueYoYChange\n          }\n        },\n        dateRanges: dateRanges\n      }\n    }\n  }\n];"
+      },
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.report }}",
+        "additionalFields": {}
+      },
+      "name": "Display Report",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Every Monday 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Ranges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Date Ranges": {
+      "main": [
+        [
+          {
+            "node": "Get This Week Contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Previous Week Contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Last Year Contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get This Week Deals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Previous Week Deals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Last Year Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get This Week Contacts": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Previous Week Contacts": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Year Contacts": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get This Week Deals": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Previous Week Deals": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Year Deals": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Display Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

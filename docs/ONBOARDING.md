@@ -8,6 +8,21 @@ Welcome to the vFairs Marketing OS. This guide gets you set up to run AI-powered
 
 ---
 
+## ✨ The fastest path: use `/onboarding`
+
+This document is the reference guide. If you'd rather have Claude Code walk you through setup interactively, do this:
+
+1. Install Claude Code (see Step 1 below if you don't have it yet).
+2. Clone this repo.
+3. Run `claude` from the repo root.
+4. Type `/onboarding`.
+
+The `/onboarding` skill auto-detects your OS, runs commands for you, verifies each step, and handles errors. **Recommended for first-time setup.**
+
+If you'd rather do it manually, continue below.
+
+---
+
 ## Big picture
 
 You'll do five things:

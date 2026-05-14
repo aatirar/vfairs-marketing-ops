@@ -1,0 +1,603 @@
+{
+  "name": "Gong Weekly Call Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Monday 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "Runs every Monday at 8:00 AM. Processes the past 7 days of Gong calls."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate date ranges for the past 7 days\nconst now = new Date();\n\n// End of range: now\nconst toDateTime = now.toISOString();\n\n// Start of range: 7 days ago\nconst fromDate = new Date(now);\nfromDate.setDate(fromDate.getDate() - 7);\nconst fromDateTime = fromDate.toISOString();\n\n// For the output filename\nconst reportDate = now.toISOString().split('T')[0]; // YYYY-MM-DD\nconst dateRangeLabel = `${fromDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} - ${now.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}`;\n\nreturn [{\n  json: {\n    fromDateTime,\n    toDateTime,\n    reportDate,\n    dateRangeLabel\n  }\n}];"
+      },
+      "name": "Calculate Date Ranges",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.gong.io/v2/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fromDateTime",
+              "value": "={{ $json.fromDateTime }}"
+            },
+            {
+              "name": "toDateTime",
+              "value": "={{ $json.toDateTime }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch Gong Calls List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_GONG_CREDENTIAL_ID",
+          "name": "Gong API"
+        }
+      },
+      "notes": "GET /v2/calls with date range filter. Returns all calls from the past 7 days.\n\nTo create Gong credentials in n8n:\n1. Go to Credentials → New → HTTP Basic Auth\n2. Name it 'Gong API'\n3. Username = your Gong Access Key\n4. Password = your Gong Access Key Secret\n(Find these in Gong → Settings → Company Settings → API)"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract call IDs and basic metadata from Gong response\n// Filter out very short calls (< 2 min) as likely connection tests\nconst response = $input.first().json;\nconst dateRanges = $node['Calculate Date Ranges'].json;\n\nconst calls = response.records?.calls || response.calls || [];\n\n// Filter out calls shorter than 2 minutes (120 seconds)\nconst validCalls = calls.filter(call => {\n  const duration = call.duration || call.actualDuration || 0;\n  return duration >= 120;\n});\n\n// Extract call IDs for the extensive endpoint\nconst callIds = validCalls.map(call => call.id);\n\n// Store basic metadata keyed by call ID\nconst callMetadata = {};\nvalidCalls.forEach(call => {\n  callMetadata[call.id] = {\n    title: call.title || 'Untitled Call',\n    started: call.started,\n    duration: call.duration || call.actualDuration || 0,\n    durationMinutes: Math.round((call.duration || call.actualDuration || 0) / 60),\n    direction: call.direction,\n    url: call.url || ''\n  };\n});\n\nreturn [{\n  json: {\n    callIds,\n    callMetadata,\n    totalCalls: validCalls.length,\n    reportDate: dateRanges.reportDate,\n    dateRangeLabel: dateRanges.dateRangeLabel\n  }\n}];"
+      },
+      "name": "Extract Call IDs & Metadata",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.totalCalls }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Any Calls Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Split call IDs into batches of 20 for the extensive endpoint\nconst { callIds, callMetadata, totalCalls, reportDate, dateRangeLabel } = $input.first().json;\nconst BATCH_SIZE = 20;\nconst batches = [];\n\nfor (let i = 0; i < callIds.length; i += BATCH_SIZE) {\n  batches.push({\n    json: {\n      batchCallIds: callIds.slice(i, i + BATCH_SIZE),\n      callMetadata,\n      totalCalls,\n      reportDate,\n      dateRangeLabel,\n      batchIndex: Math.floor(i / BATCH_SIZE)\n    }\n  });\n}\n\nreturn batches;"
+      },
+      "name": "Batch Call IDs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.gong.io/v2/calls/extensive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { callIds: $json.batchCallIds }, contentSelector: { exposedFields: { content: { brief: true, outline: true, highlights: true, topics: true, trackers: true }, parties: true } } }) }}",
+        "options": {}
+      },
+      "name": "Fetch Extensive Call Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 200],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_GONG_CREDENTIAL_ID",
+          "name": "Gong API"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "POST /v2/calls/extensive - fetches Gong AI summaries (brief, highlights, topics, trackers) and participant data for each batch of calls."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Merge extensive call data with basic metadata\n// Produce one output item per call\nconst allItems = $input.all();\nconst enrichedCalls = [];\n\nlet globalMetadata = {};\nlet reportDate = '';\nlet dateRangeLabel = '';\nlet totalCalls = 0;\n\nallItems.forEach(item => {\n  const data = item.json;\n  globalMetadata = { ...globalMetadata, ...(data.callMetadata || {}) };\n  reportDate = data.reportDate || reportDate;\n  dateRangeLabel = data.dateRangeLabel || dateRangeLabel;\n  totalCalls = data.totalCalls || totalCalls;\n\n  const calls = data.calls || [];\n  calls.forEach(call => {\n    const callId = call.metaData?.id || call.id;\n    const meta = globalMetadata[callId] || {};\n\n    const parties = call.parties || [];\n    const externalParticipants = parties.filter(p =>\n      p.affiliation === 'External' || p.affiliation === 'EXTERNAL'\n    );\n    const internalParticipants = parties.filter(p =>\n      p.affiliation === 'Internal' || p.affiliation === 'INTERNAL'\n    );\n\n    enrichedCalls.push({\n      callId,\n      title: meta.title || call.metaData?.title || 'Untitled',\n      started: meta.started || call.metaData?.started,\n      durationMinutes: meta.durationMinutes || Math.round((call.metaData?.duration || 0) / 60),\n      url: meta.url || call.metaData?.url || '',\n      brief: call.content?.brief || '',\n      outline: call.content?.outline || [],\n      highlights: call.content?.highlights || [],\n      topics: call.content?.topics || [],\n      trackers: call.content?.trackers || [],\n      hasExternalParticipants: externalParticipants.length > 0,\n      externalParticipants: externalParticipants.map(p => ({\n        name: p.name || 'Unknown',\n        email: p.emailAddress || '',\n        title: p.title || '',\n        company: p.company || ''\n      })),\n      internalParticipants: internalParticipants.map(p => ({\n        name: p.name || 'Unknown',\n        email: p.emailAddress || '',\n        title: p.title || ''\n      }))\n    });\n  });\n});\n\n// Output each call as a separate item for the classification loop\nreturn enrichedCalls.map(call => ({\n  json: {\n    ...call,\n    reportDate,\n    dateRangeLabel,\n    totalCalls\n  }\n}));"
+      },
+      "name": "Merge Extensive Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Loop - Classify Calls",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare the classification prompt for Gemini\nconst call = $input.first().json;\n\nconst prompt = `You are classifying a Gong call recording for vFairs, a virtual/hybrid events platform.\n\nCALL DATA:\n- Title: ${call.title}\n- Duration: ${call.durationMinutes} minutes\n- Has External Participants: ${call.hasExternalParticipants}\n- External Participants: ${JSON.stringify(call.externalParticipants)}\n- Internal Participants: ${JSON.stringify(call.internalParticipants)}\n- Brief: ${call.brief}\n- Topics: ${JSON.stringify(call.topics)}\n- Highlights: ${JSON.stringify(call.highlights?.slice(0, 5))}\n- Trackers: ${JSON.stringify(call.trackers)}\n\nCLASSIFICATION RULES:\n1. \"Sales\" - Calls with external participants where topics suggest: demo, pricing, proposal, new business, evaluation, POC, RFP, procurement, contract, new account, discovery call\n2. \"Customer Success\" - Calls with existing clients discussing: onboarding, support, renewal, feature requests, training, QBR, implementation, migration, upgrade, account review, check-in\n3. \"Discard\" - Internal meetings, interviews, 1:1s with no external participants, recruiting calls, team standups, all-hands, vendor calls\n\nIMPORTANT: If there are NO external participants, classify as \"Discard\" unless the call title or brief clearly indicates it is a customer-facing call.\n\nReturn ONLY a JSON object with this exact structure, no markdown, no extra text:\n{\"classification\": \"Sales\" or \"Customer Success\" or \"Discard\", \"confidence\": \"High\" or \"Medium\" or \"Low\", \"companyName\": \"<company name of the external party, or Unknown>\", \"reason\": \"<one sentence explaining classification>\"}`;\n\nconst geminiBody = {\n  contents: [{\n    parts: [{ text: prompt }]\n  }],\n  generationConfig: {\n    temperature: 0.1,\n    maxOutputTokens: 200\n  }\n};\n\nreturn [{\n  json: {\n    ...call,\n    geminiRequestBody: JSON.stringify(geminiBody)\n  }\n}];"
+      },
+      "name": "Prepare Classification Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiRequestBody }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Classify via Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2250, 200],
+      "continueOnFail": true,
+      "notes": "Sends call brief + metadata to Gemini for classification as Sales / Customer Success / Discard."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Gemini classification response\nconst data = $input.first().json;\nlet classification = 'Discard';\nlet confidence = 'Low';\nlet companyName = 'Unknown';\nlet reason = '';\n\ntry {\n  let responseText = '';\n  \n  // Handle Gemini response structure\n  if (data.candidates && data.candidates[0]) {\n    responseText = data.candidates[0].content?.parts?.[0]?.text || '';\n  } else if (data.error) {\n    throw new Error(`Gemini API error: ${data.error.message || JSON.stringify(data.error)}`);\n  }\n\n  // Strip markdown code blocks if present\n  let cleaned = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) cleaned = jsonMatch[0];\n\n  const result = JSON.parse(cleaned);\n  classification = result.classification || 'Discard';\n  confidence = result.confidence || 'Low';\n  companyName = result.companyName || 'Unknown';\n  reason = result.reason || '';\n} catch (err) {\n  reason = `Classification parse error: ${err.message}`;\n}\n\n// Preserve original call data, strip the gemini request body, add classification\nconst { geminiRequestBody, candidates, ...callData } = data;\n\nreturn [{\n  json: {\n    ...callData,\n    classification,\n    classificationConfidence: confidence,\n    companyName,\n    classificationReason: reason\n  }\n}];"
+      },
+      "name": "Parse Classification",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2450, 200]
+    },
+    {
+      "parameters": {
+        "amount": 0.4
+      },
+      "name": "Rate Limit Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [2650, 200],
+      "webhookId": "classification-rate-limit",
+      "notes": "400ms pause between calls to respect Gong's 3 req/sec rate limit."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Filter classified calls: keep only Sales and Customer Success\nconst allCalls = $input.all().map(item => item.json);\n\nconst salesCalls = allCalls.filter(c => c.classification === 'Sales');\nconst csCalls = allCalls.filter(c => c.classification === 'Customer Success');\nconst discardedCalls = allCalls.filter(c =>\n  c.classification !== 'Sales' && c.classification !== 'Customer Success'\n);\n\n// Combine Sales + CS for deep extraction\nconst callsToProcess = [...salesCalls, ...csCalls];\n\nif (callsToProcess.length === 0) {\n  // No relevant calls - pass through to report generation with empty data\n  return [{\n    json: {\n      callsToProcess: [],\n      salesCount: 0,\n      csCount: 0,\n      discardedCount: discardedCalls.length,\n      totalProcessed: allCalls.length,\n      reportDate: allCalls[0]?.reportDate || new Date().toISOString().split('T')[0],\n      dateRangeLabel: allCalls[0]?.dateRangeLabel || '',\n      skipDeepExtraction: true\n    }\n  }];\n}\n\n// Output each call to process as a separate item\nreturn callsToProcess.map(call => ({\n  json: {\n    ...call,\n    salesCount: salesCalls.length,\n    csCount: csCalls.length,\n    discardedCount: discardedCalls.length,\n    totalProcessed: allCalls.length\n  }\n}));"
+      },
+      "name": "Filter Sales + CS Only",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2850, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skipDeepExtraction }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Has Calls to Extract?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [3050, 200]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Loop - Deep Extract",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [3250, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.gong.io/v2/calls/transcript",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { callIds: [$json.callId] } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Fetch Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [3450, 100],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_GONG_CREDENTIAL_ID",
+          "name": "Gong API"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "POST /v2/calls/transcript - fetches full transcript for the current call."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse transcript and prepare deep extraction prompt for Gemini\nconst data = $input.first().json;\n\n// Extract transcript text from Gong response\nlet transcriptText = '';\ntry {\n  const transcripts = data.callTranscripts || [];\n  if (transcripts.length > 0) {\n    const segments = transcripts[0].transcript || [];\n    transcriptText = segments.map(seg => {\n      const speaker = seg.speakerName || seg.speaker || 'Unknown';\n      const text = seg.sentences?.map(s => s.text).join(' ') || seg.text || '';\n      return `${speaker}: ${text}`;\n    }).join('\\n');\n  }\n} catch (err) {\n  transcriptText = '[Transcript unavailable]';\n}\n\n// Truncate transcript to first 15000 chars to stay within Gemini limits\nconst truncatedTranscript = transcriptText.substring(0, 15000);\n\nconst prompt = `You are analyzing a ${data.classification} call for vFairs (virtual/hybrid events platform).\nExtract structured insights from this Gong call recording.\n\nCALL METADATA:\n- Title: ${data.title}\n- Duration: ${data.durationMinutes} minutes\n- Company: ${data.companyName}\n- Call Type: ${data.classification}\n\nGONG AI BRIEF:\n${data.brief}\n\nGONG HIGHLIGHTS:\n${JSON.stringify(data.highlights?.slice(0, 8))}\n\nGONG TOPICS:\n${JSON.stringify(data.topics)}\n\nCALL TRANSCRIPT (truncated):\n${truncatedTranscript}\n\nExtract the following into a JSON object. Be specific and use direct quotes where relevant.\nFor fields not applicable or not discussed, use null or empty array.\n\n{\n  \"callType\": \"Sales\" or \"Customer Success\",\n  \"companyName\": \"<string>\",\n  \"participants\": {\n    \"internal\": [{\"name\": \"<string>\", \"title\": \"<string>\"}],\n    \"external\": [{\"name\": \"<string>\", \"title\": \"<string>\", \"role\": \"<string>\"}]\n  },\n  \"durationMinutes\": <number>,\n  \"personasInvolved\": [\"<title/role of each external participant>\"],\n  \"painPoints\": [\"<specific pain point mentioned>\"],\n  \"goalsObjectives\": [\"<what the prospect/customer wants to achieve>\"],\n  \"challenges\": [\"<obstacles or concerns raised>\"],\n  \"competitorMentions\": [\"<competitor name and context>\"],\n  \"featureRequests\": [\"<specific feature asked for>\"],\n  \"objections\": [\"<specific objection raised>\"],\n  \"sentiment\": \"Positive\" or \"Neutral\" or \"Negative\",\n  \"grievances\": [\"<complaints or frustrations expressed>\"],\n  \"notesForMarketing\": [\"<messaging opportunities, positioning insights, content ideas>\"],\n  \"keyQuotes\": [\"<1-2 notable direct quotes from the call>\"],\n  \"nextSteps\": [\"<specific action items or follow-ups agreed>\"],\n  \"summary\": \"<3-4 sentence executive summary of this call>\"\n}\n\nReturn ONLY the JSON object, no markdown code blocks, no extra text.`;\n\nconst geminiBody = {\n  contents: [{\n    parts: [{ text: prompt }]\n  }],\n  generationConfig: {\n    temperature: 0.2,\n    maxOutputTokens: 1500\n  }\n};\n\n// Strip transcript and Gong response data to save memory, keep call metadata\nconst { callTranscripts, candidates, ...callData } = data;\n\nreturn [{\n  json: {\n    ...callData,\n    hasTranscript: transcriptText.length > 0,\n    geminiExtractionBody: JSON.stringify(geminiBody)\n  }\n}];"
+      },
+      "name": "Prepare Extraction Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3650, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiExtractionBody }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Deep Extract via Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [3850, 100],
+      "continueOnFail": true,
+      "notes": "Sends Gong AI summary + truncated transcript to Gemini for structured extraction of personas, pain points, sentiment, etc."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Gemini deep extraction response and merge with call data\nconst data = $input.first().json;\nlet extraction = null;\n\ntry {\n  let responseText = '';\n\n  if (data.candidates && data.candidates[0]) {\n    responseText = data.candidates[0].content?.parts?.[0]?.text || '';\n  } else if (data.error) {\n    throw new Error(`Gemini API error: ${data.error.message || JSON.stringify(data.error)}`);\n  }\n\n  // Strip markdown code blocks\n  let cleaned = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) cleaned = jsonMatch[0];\n\n  extraction = JSON.parse(cleaned);\n} catch (err) {\n  // Fallback: use Gong's brief as the summary\n  extraction = {\n    callType: data.classification || 'Unknown',\n    companyName: data.companyName || 'Unknown',\n    participants: { internal: [], external: [] },\n    durationMinutes: data.durationMinutes || 0,\n    personasInvolved: [],\n    painPoints: [],\n    goalsObjectives: [],\n    challenges: [],\n    competitorMentions: [],\n    featureRequests: [],\n    objections: [],\n    sentiment: 'Neutral',\n    grievances: [],\n    notesForMarketing: [],\n    keyQuotes: [],\n    nextSteps: [],\n    summary: data.brief || `[Extraction failed: ${err.message}]`\n  };\n}\n\n// Clean up: strip Gemini response data, keep extraction + metadata\nconst { geminiExtractionBody, candidates, ...callData } = data;\n\nreturn [{\n  json: {\n    callId: callData.callId,\n    title: callData.title,\n    started: callData.started,\n    url: callData.url,\n    classification: callData.classification,\n    classificationConfidence: callData.classificationConfidence,\n    reportDate: callData.reportDate,\n    dateRangeLabel: callData.dateRangeLabel,\n    salesCount: callData.salesCount,\n    csCount: callData.csCount,\n    discardedCount: callData.discardedCount,\n    totalProcessed: callData.totalProcessed,\n    extraction\n  }\n}];"
+      },
+      "name": "Parse Extraction",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4050, 100]
+    },
+    {
+      "parameters": {
+        "amount": 0.5
+      },
+      "name": "Extraction Rate Limit Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [4250, 100],
+      "webhookId": "extraction-rate-limit",
+      "notes": "500ms pause between transcript fetch + extraction cycles."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Collect all extracted calls and prepare for weekly trends aggregation\nconst allCalls = $input.all().map(item => item.json);\n\nconst salesCalls = allCalls.filter(c => c.classification === 'Sales');\nconst csCalls = allCalls.filter(c => c.classification === 'Customer Success');\n\n// Prepare a compact version for the trends aggregation prompt\nconst compactCalls = allCalls.map(c => ({\n  type: c.classification,\n  company: c.extraction?.companyName || 'Unknown',\n  summary: c.extraction?.summary || '',\n  painPoints: c.extraction?.painPoints || [],\n  goalsObjectives: c.extraction?.goalsObjectives || [],\n  challenges: c.extraction?.challenges || [],\n  competitorMentions: c.extraction?.competitorMentions || [],\n  objections: c.extraction?.objections || [],\n  featureRequests: c.extraction?.featureRequests || [],\n  sentiment: c.extraction?.sentiment || 'Neutral',\n  grievances: c.extraction?.grievances || [],\n  notesForMarketing: c.extraction?.notesForMarketing || []\n}));\n\nreturn [{\n  json: {\n    salesCalls,\n    csCalls,\n    compactCalls,\n    salesCount: salesCalls.length,\n    csCount: csCalls.length,\n    discardedCount: allCalls[0]?.discardedCount || 0,\n    totalProcessed: allCalls[0]?.totalProcessed || 0,\n    reportDate: allCalls[0]?.reportDate || new Date().toISOString().split('T')[0],\n    dateRangeLabel: allCalls[0]?.dateRangeLabel || ''\n  }\n}];"
+      },
+      "name": "Collect All Extractions",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4450, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare the weekly trends aggregation prompt for Gemini\nconst data = $input.first().json;\n\nconst prompt = `You are analyzing a week's worth of Gong call data for vFairs, a virtual/hybrid events platform growing from $18.5M to $30M ARR.\n\nAnalyze these ${data.compactCalls.length} call extractions and produce a weekly trends report.\n\nCALLS THIS WEEK:\n${JSON.stringify(data.compactCalls, null, 2)}\n\nProduce a JSON object with these sections. Be specific — reference company names and concrete details, not generic observations.\n\n{\n  \"weeklyTrends\": {\n    \"topPainPoints\": [\"<top 3-5 recurring pain points across calls with company references>\"],\n    \"topCompetitors\": [\"<competitors mentioned with which companies mentioned them>\"],\n    \"emergingThemes\": [\"<new topics or themes appearing this week>\"],\n    \"sentimentOverview\": \"<overall sentiment summary across calls>\",\n    \"dealHealthIndicators\": [\"<signals about pipeline health, hot deals, at-risk deals>\"]\n  },\n  \"marketingSignals\": {\n    \"messagingOpportunities\": [\"<positioning insights for marketing based on what resonated>\"],\n    \"contentIdeas\": [\"<blog/social content ideas drawn from call themes>\"],\n    \"competitivePositioning\": [\"<how to differentiate from mentioned competitors>\"],\n    \"objectionPatterns\": [\"<common objections marketing should address in content/collateral>\"],\n    \"customerSuccessStories\": [\"<potential case study or testimonial candidates>\"]\n  }\n}\n\nReturn ONLY the JSON object, no markdown code blocks, no extra text.`;\n\nconst geminiBody = {\n  contents: [{\n    parts: [{ text: prompt }]\n  }],\n  generationConfig: {\n    temperature: 0.3,\n    maxOutputTokens: 2000\n  }\n};\n\nreturn [{\n  json: {\n    ...data,\n    geminiTrendsBody: JSON.stringify(geminiBody)\n  }\n}];"
+      },
+      "name": "Prepare Trends Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiTrendsBody }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Aggregate Trends via Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [4850, 200],
+      "continueOnFail": true,
+      "notes": "Sends all extracted call summaries to Gemini for cross-call trend analysis and marketing signals."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse trends response and generate the final markdown report\nconst data = $input.first().json;\n\n// Parse trends from Gemini\nlet trends = { weeklyTrends: {}, marketingSignals: {} };\ntry {\n  let responseText = '';\n  if (data.candidates && data.candidates[0]) {\n    responseText = data.candidates[0].content?.parts?.[0]?.text || '';\n  }\n  let cleaned = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) cleaned = jsonMatch[0];\n  trends = JSON.parse(cleaned);\n} catch (err) {\n  trends = {\n    weeklyTrends: { topPainPoints: ['[Trend analysis unavailable]'] },\n    marketingSignals: { messagingOpportunities: ['[Analysis unavailable]'] }\n  };\n}\n\nconst wt = trends.weeklyTrends || {};\nconst ms = trends.marketingSignals || {};\n\n// Get call data (strip Gemini response fields)\nconst salesCalls = data.salesCalls || [];\nconst csCalls = data.csCalls || [];\n\n// Helper: format a list with -> bullets\nfunction bulletList(items) {\n  if (!items || items.length === 0) return '  -> None noted\\n';\n  return items.map(item => `  -> ${item}`).join('\\n') + '\\n';\n}\n\n// Helper: format a single call section\nfunction formatCall(call, index) {\n  const ext = call.extraction || {};\n  let section = '';\n  section += `### ${index + 1}. ${ext.companyName || call.title || 'Unknown Company'}\\n\\n`;\n  section += `**Duration:** ${ext.durationMinutes || call.durationMinutes || '?'} min | **Sentiment:** ${ext.sentiment || 'Unknown'}\\n\\n`;\n  section += `**Summary:** ${ext.summary || call.brief || 'No summary available.'}\\n\\n`;\n\n  // Participants\n  const extParticipants = ext.participants?.external || [];\n  if (extParticipants.length > 0) {\n    section += `**External Participants:**\\n`;\n    extParticipants.forEach(p => {\n      section += `  -> ${p.name || 'Unknown'}${p.title ? ' (' + p.title + ')' : ''}${p.role ? ' - ' + p.role : ''}\\n`;\n    });\n    section += `\\n`;\n  }\n\n  // Personas\n  if (ext.personasInvolved?.length) {\n    section += `**Personas:** ${ext.personasInvolved.join(', ')}\\n\\n`;\n  }\n\n  // Pain Points\n  if (ext.painPoints?.length) {\n    section += `**Pain Points:**\\n${bulletList(ext.painPoints)}\\n`;\n  }\n\n  // Goals / Objectives\n  if (ext.goalsObjectives?.length) {\n    section += `**Goals & Objectives:**\\n${bulletList(ext.goalsObjectives)}\\n`;\n  }\n\n  // Challenges\n  if (ext.challenges?.length) {\n    section += `**Challenges:**\\n${bulletList(ext.challenges)}\\n`;\n  }\n\n  // Objections (Sales) or Feature Requests (CS)\n  if (ext.callType === 'Sales' && ext.objections?.length) {\n    section += `**Objections:**\\n${bulletList(ext.objections)}\\n`;\n  }\n  if (ext.callType === 'Customer Success' && ext.featureRequests?.length) {\n    section += `**Feature Requests:**\\n${bulletList(ext.featureRequests)}\\n`;\n  }\n\n  // Competitor Mentions\n  if (ext.competitorMentions?.length) {\n    section += `**Competitor Mentions:**\\n${bulletList(ext.competitorMentions)}\\n`;\n  }\n\n  // Grievances\n  if (ext.grievances?.length) {\n    section += `**Grievances:**\\n${bulletList(ext.grievances)}\\n`;\n  }\n\n  // Key Quotes\n  if (ext.keyQuotes?.length) {\n    section += `**Key Quotes:**\\n`;\n    ext.keyQuotes.forEach(q => {\n      section += `  > \"${q}\"\\n\\n`;\n    });\n  }\n\n  // Next Steps\n  if (ext.nextSteps?.length) {\n    section += `**Next Steps:**\\n${bulletList(ext.nextSteps)}\\n`;\n  }\n\n  // Notes for Marketing\n  if (ext.notesForMarketing?.length) {\n    section += `**Notes for Marketing:**\\n${bulletList(ext.notesForMarketing)}\\n`;\n  }\n\n  section += `---\\n\\n`;\n  return section;\n}\n\n// === BUILD THE MARKDOWN REPORT ===\nlet md = '';\n\n// Header\nmd += `# Gong Weekly Call Digest\\n\\n`;\nmd += `**Period:** ${data.dateRangeLabel}\\n`;\nmd += `**Generated:** ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\\n\\n`;\nmd += `---\\n\\n`;\n\n// Summary Table\nmd += `## Summary\\n\\n`;\nmd += `| Metric | Count |\\n`;\nmd += `|--------|-------|\\n`;\nmd += `| Total Calls Reviewed | ${data.totalProcessed || 0} |\\n`;\nmd += `| Sales Calls | ${data.salesCount || 0} |\\n`;\nmd += `| Customer Success Calls | ${data.csCount || 0} |\\n`;\nmd += `| Discarded (Internal/Other) | ${data.discardedCount || 0} |\\n\\n`;\n\n// Sales Calls Section\nmd += `---\\n\\n## Sales Calls\\n\\n`;\nif (salesCalls.length === 0) {\n  md += `_No sales calls this week._\\n\\n`;\n} else {\n  salesCalls.forEach((call, i) => {\n    md += formatCall(call, i);\n  });\n}\n\n// CS Calls Section\nmd += `## Customer Success Calls\\n\\n`;\nif (csCalls.length === 0) {\n  md += `_No customer success calls this week._\\n\\n`;\n} else {\n  csCalls.forEach((call, i) => {\n    md += formatCall(call, i);\n  });\n}\n\n// Weekly Trends\nmd += `## Weekly Trends\\n\\n`;\nif (wt.topPainPoints?.length) {\n  md += `**Top Pain Points Across Calls:**\\n${bulletList(wt.topPainPoints)}\\n`;\n}\nif (wt.topCompetitors?.length) {\n  md += `**Top Competitors Mentioned:**\\n${bulletList(wt.topCompetitors)}\\n`;\n}\nif (wt.emergingThemes?.length) {\n  md += `**Emerging Themes:**\\n${bulletList(wt.emergingThemes)}\\n`;\n}\nif (wt.sentimentOverview) {\n  md += `**Sentiment Overview:** ${wt.sentimentOverview}\\n\\n`;\n}\nif (wt.dealHealthIndicators?.length) {\n  md += `**Deal Health Indicators:**\\n${bulletList(wt.dealHealthIndicators)}\\n`;\n}\n\n// Marketing Signals\nmd += `---\\n\\n## Marketing Signals\\n\\n`;\nif (ms.messagingOpportunities?.length) {\n  md += `**Messaging Opportunities:**\\n${bulletList(ms.messagingOpportunities)}\\n`;\n}\nif (ms.contentIdeas?.length) {\n  md += `**Content Ideas:**\\n${bulletList(ms.contentIdeas)}\\n`;\n}\nif (ms.competitivePositioning?.length) {\n  md += `**Competitive Positioning:**\\n${bulletList(ms.competitivePositioning)}\\n`;\n}\nif (ms.objectionPatterns?.length) {\n  md += `**Objection Patterns to Address:**\\n${bulletList(ms.objectionPatterns)}\\n`;\n}\nif (ms.customerSuccessStories?.length) {\n  md += `**Case Study Candidates:**\\n${bulletList(ms.customerSuccessStories)}\\n`;\n}\n\nmd += `---\\n\\n*Generated by Gong Weekly Digest workflow*\\n`;\n\nconst filename = `gong-weekly-${data.reportDate}.md`;\n\nreturn [{\n  json: {\n    markdownContent: md,\n    filename,\n    dateRangeLabel: data.dateRangeLabel,\n    salesCount: data.salesCount,\n    csCount: data.csCount,\n    discardedCount: data.discardedCount\n  }\n}];"
+      },
+      "name": "Generate Markdown Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [5050, 200],
+      "notes": "Builds the full markdown weekly digest with per-call summaries, weekly trends, and marketing signals. Uses -> bullets per Aatir's formatting preference."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Convert markdown string to binary data for Google Drive upload\nconst data = $input.first().json;\n\nreturn [{\n  json: data,\n  binary: {\n    data: {\n      data: Buffer.from(data.markdownContent, 'utf8').toString('base64'),\n      mimeType: 'text/markdown',\n      fileName: data.filename,\n      fileExtension: 'md'\n    }\n  }\n}];"
+      },
+      "name": "Convert to Binary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [5250, 200],
+      "notes": "Converts the markdown string to binary so it can be uploaded as a file to Google Drive."
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "name": "={{ $json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_FOLDER_ID"
+        },
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [5450, 200],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_GDRIVE_CREDENTIAL_ID",
+          "name": "Google Drive"
+        }
+      },
+      "notes": "Saves the digest to your 'Gong Weekly Digests' folder in Google Drive.\n\nSetup steps:\n1. Create a folder called 'Gong Weekly Digests' in Google Drive\n2. Open it, copy the ID from the URL: drive.google.com/drive/folders/THIS_PART\n3. Paste the ID above, replacing REPLACE_WITH_FOLDER_ID\n4. Create a Google Drive OAuth2 credential in n8n and replace REPLACE_WITH_GDRIVE_CREDENTIAL_ID"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_SLACK_CHANNEL_ID"
+        },
+        "messageType": "block",
+        "blocksUi": "={{ JSON.stringify([\n  {\n    \"type\": \"header\",\n    \"text\": { \"type\": \"plain_text\", \"text\": \"📊 Gong Weekly Digest Ready\" }\n  },\n  {\n    \"type\": \"section\",\n    \"fields\": [\n      { \"type\": \"mrkdwn\", \"text\": \"*Period:*\\n\" + $json.dateRangeLabel },\n      { \"type\": \"mrkdwn\", \"text\": \"*File:*\\n\" + $json.filename }\n    ]\n  },\n  {\n    \"type\": \"section\",\n    \"fields\": [\n      { \"type\": \"mrkdwn\", \"text\": \"*Sales Calls:*\\n\" + $json.salesCount },\n      { \"type\": \"mrkdwn\", \"text\": \"*CS Calls:*\\n\" + $json.csCount },\n      { \"type\": \"mrkdwn\", \"text\": \"*Discarded:*\\n\" + $json.discardedCount }\n    ]\n  },\n  {\n    \"type\": \"context\",\n    \"elements\": [{ \"type\": \"mrkdwn\", \"text\": \"Saved to Google Drive → Gong Weekly Digests\" }]\n  }\n]) }}",
+        "otherOptions": {}
+      },
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [5650, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack API"
+        }
+      },
+      "notes": "Sends a Slack notification when the digest is saved.\n\nSetup steps:\n1. Create a Slack API credential in n8n (use your Bot Token: xoxb-...)\n2. Replace REPLACE_WITH_SLACK_CREDENTIAL_ID with the credential ID\n3. Replace REPLACE_WITH_SLACK_CHANNEL_ID with the channel ID (right-click channel in Slack → Copy link → the ID is at the end)"
+    },
+    {
+      "parameters": {},
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [5850, 200],
+      "notes": "Workflow complete. Report saved to Google Drive and Slack notified."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate an empty report when no calls were found\nconst reportDate = $input.first().json.reportDate || new Date().toISOString().split('T')[0];\nconst dateRangeLabel = $input.first().json.dateRangeLabel || 'Past 7 days';\n\nconst md = `# Gong Weekly Call Digest\\n\\n**Period:** ${dateRangeLabel}\\n**Generated:** ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\\n\\n---\\n\\n## Summary\\n\\n_No calls found for this period._\\n\\n---\\n\\n*Generated by Gong Weekly Digest workflow*\\n`;\n\nreturn [{\n  json: {\n    markdownContent: md,\n    filename: `gong-weekly-${reportDate}.md`,\n    dateRangeLabel,\n    salesCount: 0,\n    csCount: 0,\n    discardedCount: 0\n  }\n}];"
+      },
+      "name": "Generate Empty Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3050, 500],
+      "notes": "Generates a minimal report when no calls are found in the date range."
+    },
+    {
+      "parameters": {
+        "functionCode": "// No relevant calls to extract - generate report with just counts\nconst data = $input.first().json;\n\nconst md = `# Gong Weekly Call Digest\\n\\n**Period:** ${data.dateRangeLabel}\\n**Generated:** ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\\n\\n---\\n\\n## Summary\\n\\n| Metric | Count |\\n|--------|-------|\\n| Total Calls Reviewed | ${data.totalProcessed || 0} |\\n| Sales Calls | 0 |\\n| Customer Success Calls | 0 |\\n| Discarded (Internal/Other) | ${data.discardedCount || 0} |\\n\\n_All calls this week were classified as internal/other and discarded._\\n\\n---\\n\\n*Generated by Gong Weekly Digest workflow*\\n`;\n\nreturn [{\n  json: {\n    markdownContent: md,\n    filename: `gong-weekly-${data.reportDate}.md`,\n    dateRangeLabel: data.dateRangeLabel,\n    salesCount: 0,\n    csCount: 0,\n    discardedCount: data.discardedCount || 0\n  }\n}];"
+      },
+      "name": "Generate No-Relevant-Calls Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3250, 400],
+      "notes": "Generates a report when calls were found but all were classified as Discard."
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Monday 8 AM": {
+      "main": [[{ "node": "Calculate Date Ranges", "type": "main", "index": 0 }]]
+    },
+    "Calculate Date Ranges": {
+      "main": [[{ "node": "Fetch Gong Calls List", "type": "main", "index": 0 }]]
+    },
+    "Fetch Gong Calls List": {
+      "main": [[{ "node": "Extract Call IDs & Metadata", "type": "main", "index": 0 }]]
+    },
+    "Extract Call IDs & Metadata": {
+      "main": [[{ "node": "Any Calls Found?", "type": "main", "index": 0 }]]
+    },
+    "Any Calls Found?": {
+      "main": [
+        [{ "node": "Batch Call IDs", "type": "main", "index": 0 }],
+        [{ "node": "Generate Empty Report", "type": "main", "index": 0 }]
+      ]
+    },
+    "Batch Call IDs": {
+      "main": [[{ "node": "Fetch Extensive Call Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Extensive Call Data": {
+      "main": [[{ "node": "Merge Extensive Data", "type": "main", "index": 0 }]]
+    },
+    "Merge Extensive Data": {
+      "main": [[{ "node": "Loop - Classify Calls", "type": "main", "index": 0 }]]
+    },
+    "Loop - Classify Calls": {
+      "main": [
+        [{ "node": "Filter Sales + CS Only", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Classification Prompt", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Classification Prompt": {
+      "main": [[{ "node": "Classify via Gemini", "type": "main", "index": 0 }]]
+    },
+    "Classify via Gemini": {
+      "main": [[{ "node": "Parse Classification", "type": "main", "index": 0 }]]
+    },
+    "Parse Classification": {
+      "main": [[{ "node": "Rate Limit Wait", "type": "main", "index": 0 }]]
+    },
+    "Rate Limit Wait": {
+      "main": [[{ "node": "Loop - Classify Calls", "type": "main", "index": 0 }]]
+    },
+    "Filter Sales + CS Only": {
+      "main": [[{ "node": "Has Calls to Extract?", "type": "main", "index": 0 }]]
+    },
+    "Has Calls to Extract?": {
+      "main": [
+        [{ "node": "Generate No-Relevant-Calls Report", "type": "main", "index": 0 }],
+        [{ "node": "Loop - Deep Extract", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop - Deep Extract": {
+      "main": [
+        [{ "node": "Collect All Extractions", "type": "main", "index": 0 }],
+        [{ "node": "Fetch Transcript", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Transcript": {
+      "main": [[{ "node": "Prepare Extraction Prompt", "type": "main", "index": 0 }]]
+    },
+    "Prepare Extraction Prompt": {
+      "main": [[{ "node": "Deep Extract via Gemini", "type": "main", "index": 0 }]]
+    },
+    "Deep Extract via Gemini": {
+      "main": [[{ "node": "Parse Extraction", "type": "main", "index": 0 }]]
+    },
+    "Parse Extraction": {
+      "main": [[{ "node": "Extraction Rate Limit Wait", "type": "main", "index": 0 }]]
+    },
+    "Extraction Rate Limit Wait": {
+      "main": [[{ "node": "Loop - Deep Extract", "type": "main", "index": 0 }]]
+    },
+    "Collect All Extractions": {
+      "main": [[{ "node": "Prepare Trends Prompt", "type": "main", "index": 0 }]]
+    },
+    "Prepare Trends Prompt": {
+      "main": [[{ "node": "Aggregate Trends via Gemini", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Trends via Gemini": {
+      "main": [[{ "node": "Generate Markdown Report", "type": "main", "index": 0 }]]
+    },
+    "Generate Markdown Report": {
+      "main": [[{ "node": "Convert to Binary", "type": "main", "index": 0 }]]
+    },
+    "Generate Empty Report": {
+      "main": [[{ "node": "Convert to Binary", "type": "main", "index": 0 }]]
+    },
+    "Generate No-Relevant-Calls Report": {
+      "main": [[{ "node": "Convert to Binary", "type": "main", "index": 0 }]]
+    },
+    "Convert to Binary": {
+      "main": [[{ "node": "Save to Google Drive", "type": "main", "index": 0 }]]
+    },
+    "Save to Google Drive": {
+      "main": [[{ "node": "Send Slack Notification", "type": "main", "index": 0 }]]
+    },
+    "Send Slack Notification": {
+      "main": [[{ "node": "Done", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "vFairs",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Gong",
+      "createdAt": "2026-02-08T00:00:00.000Z",
+      "updatedAt": "2026-02-08T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-21T00:00:00.000Z",
+  "versionId": "2"
+}

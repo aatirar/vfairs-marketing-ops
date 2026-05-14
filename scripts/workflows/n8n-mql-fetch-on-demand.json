@@ -1,0 +1,104 @@
+{
+  "name": "vFairs MQL Fetch (On-Demand)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fetch-mqls",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "fetch-mqls-on-demand"
+    },
+    {
+      "parameters": {
+        "command": "cd /path/to/vFairs-Marketing-OS && node scripts/reporting/fetch-mqls-incremental.js",
+        "options": {}
+      },
+      "id": "execute-fetch-script",
+      "name": "Execute MQL Fetch Script",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse the output from the Node.js script\nconst output = $input.first().json.stdout || '';\nconst errorOutput = $input.first().json.stderr || '';\n\n// Extract key metrics from output\nconst totalMatch = output.match(/Total new MQLs found: (\\d+)/);\nconst totalMQLs = totalMatch ? parseInt(totalMatch[1], 10) : 0;\n\n// Check if successful\nconst success = output.includes('🎉 Fetch completed successfully');\n\n// Extract sample contacts if available\nconst sampleSection = output.split('📋 SAMPLE OF FETCHED MQLS')[1];\n\nreturn {\n  json: {\n    success: success,\n    timestamp: new Date().toISOString(),\n    mqls_fetched: totalMQLs,\n    message: success ? `Successfully fetched ${totalMQLs} new MQLs` : 'Fetch encountered issues',\n    raw_output: output,\n    errors: errorOutput || null\n  }\n};"
+      },
+      "id": "parse-output",
+      "name": "Parse Script Output",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute MQL Fetch Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute MQL Fetch Script": {
+      "main": [
+        [
+          {
+            "node": "Parse Script Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-15T00:00:00.000Z",
+  "versionId": "1"
+}
