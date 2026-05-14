@@ -185,12 +185,15 @@ Your Google Ads Account(s)
 
 ### Environment Variables
 
-Located in `vFairs/.env`:
+Located in `.env` at the repo root. See `.env.example` for the full template and `docs/CREDENTIALS.md` for what each value is and where to get it. The relevant keys for Google Ads:
 
 ```env
-GOOGLE_ADS_DEVELOPER_TOKEN=98cr_9iuydjwnuL4sERGWg
-GOOGLE_PROJECT_ID=erudite-spot-486817-q1
-GOOGLE_APPLICATION_CREDENTIALS=C:\Users\User\Documents\AI Projects\HomeBase\vFairs\google-ads-credentials.json
+GOOGLE_ADS_DEVELOPER_TOKEN=<from vault>
+GOOGLE_ADS_CLIENT_ID=<from vault>
+GOOGLE_ADS_CLIENT_SECRET=<from vault>
+GOOGLE_ADS_REFRESH_TOKEN=<from vault>
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=<from vault>
+GOOGLE_APPLICATION_CREDENTIALS=.config/google-credentials.json
 ```
 
 ### Files Created

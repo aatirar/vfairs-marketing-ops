@@ -476,7 +476,7 @@ Generate a comprehensive audit report with this exact structure:
 - 2026 Goal: $18.5M → $30M ARR
 - Target: Mid-market and enterprise
 - Marketing focus: Inbound, content, SEO, thought leadership
-- Aatir's role: VP Marketing leading 8 pods
+- Marketing org: 8 pods led by the VP Marketing
 
 **Content Strategy:**
 - Tactical, actionable insights
