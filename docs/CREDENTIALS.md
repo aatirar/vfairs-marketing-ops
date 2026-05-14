@@ -51,6 +51,7 @@ Every marketer pastes these into their local `.env`.
 | `SMARTLEAD_API_KEY` | Smartlead API key | Read campaign + lead data | smartlead MCP |
 | `GEMINI_API_KEY` | Google Gemini API key | Generate text + images | Image generation scripts |
 | `RAPIDAPI_KEY` | RapidAPI key | LinkedIn post fetches (if used) | Optional. Some content skills |
+| `DATA_DRIVE_FOLDER_ID` | Google Drive folder ID for shared data | Service account already has Viewer access | `npm run sync` — pulls customer CSVs, MQL exports, whales, etc. |
 
 ### Service account file
 

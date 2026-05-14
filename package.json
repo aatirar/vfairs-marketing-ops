@@ -5,6 +5,9 @@
   "private": true,
   "scripts": {
     "verify": "node scripts/utils/verify-setup.js",
+    "sync": "node scripts/utils/sync-data.js",
+    "sync:dry": "node scripts/utils/sync-data.js --dry-run",
+    "sync:force": "node scripts/utils/sync-data.js --force",
     "mql-report": "node scripts/reporting/mql-report-sheets.js",
     "morning-mql": "node scripts/reporting/morning-mql.js",
     "whale-finder": "node scripts/analysis/whales/whale-finder.js"
