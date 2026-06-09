@@ -46,6 +46,7 @@ Event professionals who have been burned by event tech that over-promised and un
 - **No "It's not X, it's Y"** contrasting structures. Overused, sounds robotic.
 - No rhetorical questions in H1s ("Tired of [pain]?").
 - No "Imagine if..." openers.
+- **No triple negation.** Never stack three "No X. No Y. No Z." sentences in a row — reads as an AI tell. Two is the absolute ceiling.
 
 ### Words and phrases
 | Avoid | Why | Use instead |
@@ -99,6 +100,9 @@ Event professionals who have been burned by event tech that over-promised and un
 - A pure webinar tool (we're not Zoom Webinars)
 - A community platform (we're not Bevy or Hivebrite)
 
+**Lead enrichment:**
+When an exhibitor scans an attendee's badge at a vFairs event, the platform triggers third-party enrichment (industry, company URL, company size, etc.) to produce a richer lead profile for the exhibitor's CRM. Safe to message on lead-capture and networking pages.
+
 ---
 
 ## Patterns to use
@@ -118,6 +122,25 @@ Event professionals who have been burned by event tech that over-promised and un
 ### Specific failure scenarios
 **Bad:** "Don't let your event fall flat"
 **Good:** "Your speaker no-shows 10 minutes before their session. Here's how vFairs handles it."
+
+### H1 → H2 rules (landing pages)
+- **H2 must take a different angle from H1, not paraphrase it.** If H1 makes a benefit promise, H2 should introduce proof, audience, or a specific capability. Never restate H1 in different words.
+- **The H2 sub-head must EXPAND the H2 point.** It should never open with "A [category] is software that…" or any definitional template. Move directly into specifics, outcomes, or the buyer's situation.
+
+---
+
+## Workflow conventions
+
+These are operational defaults for any skill that produces editable artifacts (landing-page rewrites, ad copy rewrites, mockups).
+
+### Landing-page mockups
+- The default mockup file is `[slug]-new.html` using the branded TT Norms Pro + coral-to-orange gradient kit (see `context/product/website-style-guide.md`).
+- Hero form headings should be page-contextual. Never default to a generic "Capture Leads" on a feature page — match the buyer's intent (e.g. "Get a Demo of Badge Printing").
+- Use `[Image #N]` placeholders for staged visuals; the team replaces them with approved assets before publish.
+- Weave 2–3 Ahrefs semantic keywords into 2+ placements each (headings + body), surfaced by `/re-write`.
+
+### Rewrite reviews
+- **Never write rewrite updates back into the tab the user has been reviewing.** Always create a new tab in the destination Sheet. This preserves the reviewer's annotations and lets them diff old vs new side-by-side.
 
 ---
 
