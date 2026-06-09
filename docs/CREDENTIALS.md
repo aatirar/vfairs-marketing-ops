@@ -11,21 +11,22 @@ We use **two buckets**:
 1. **Shared (read-only) credentials** live in the team vault. Every marketer copies the same values. These power any "read live data" skill (HubSpot, GA4, Google Ads, GSC, Gong, Ahrefs, Semrush).
 2. **Personal credentials** are generated per marketer. Each person has their own. These power any skill that acts as that person (Slack posting, Gmail, Calendar).
 
-Real credential values are **never** in this repo. They live in 1Password (or whatever vault the team uses).
+Real credential values are **never** in this repo. They live in a restricted Google Doc titled **"vFairs Marketing OS — Credentials Vault"** that the admin shares with each marketer as a Viewer. See `docs/admin/vault-template.md` for the Doc's structure.
 
 ---
 
 ## Vault structure
 
-The team vault has one section titled **"vFairs Marketing OS"** with these entries:
+The vault is a single Google Doc with these sections (template lives at `docs/admin/vault-template.md`):
 
-| Entry name | Contents | Who can read |
+| Section | Contents | Who can read |
 |---|---|---|
-| `vFairs Marketing OS .env values` | All shared API keys + tokens, formatted to paste into `.env` | All marketers |
-| `google-credentials.json` | Service account JSON for GA4 + GSC | All marketers (download as file) |
-| `google-ads.yaml` (legacy) | Old per-user OAuth config. Now superseded by `.env` values | Aatir only |
-| `marketing-bot OAuth credentials` | The Workspace account used to mint the shared Google Ads refresh token | Aatir only |
-| `HubSpot Marketing OS app` | The HubSpot private app config (read-only scope) | Aatir only |
+| Shared credentials | All shared API keys + tokens, formatted to paste into `.env` | All marketers (Viewer access) |
+| Service Account JSON (attachment) | `google-credentials.json` for GA4 + GSC + Sheets | All marketers (download as file) |
+| Admin-only entries | marketing-bot password, HubSpot Private App URL, n8n admin URL, Google Cloud project ID | Admin only — hidden section |
+| Rotation history | Running log of every credential rotation with dates and reasons | All marketers (Viewer) |
+
+**Admin to fill in:** the live vault Doc URL goes in `docs/ONBOARDING.md` Step 4. Replace the placeholder text after running `/admin-setup`.
 
 ---
 

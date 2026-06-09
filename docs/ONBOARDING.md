@@ -42,7 +42,7 @@ Most of the time is in steps 1 and 3. Once you're set up, you only need to open 
 | Need | Where to get it |
 |---|---|
 | GitHub access to this repo | Ask Aatir to add you as a collaborator |
-| Team vault access (1Password, Bitwarden, or wherever the team stores shared creds) | Ask Aatir to invite you |
+| Team vault access — a restricted Google Doc titled "vFairs Marketing OS — Credentials Vault" | Ask the repo admin to share with View access |
 | A Google account that's been added to vFairs Google Ads and Search Console as a viewer | Aatir handles this |
 | Admin rights on your laptop | You should already have this |
 
@@ -127,9 +127,9 @@ cd vFairs-Marketing-OS
 
 ## Step 4: Get credentials from the team vault
 
-Open the shared vault (1Password or whatever the team uses). You'll need access to the **"vFairs Marketing OS"** entry. Ask Aatir if you can't find it.
+The team vault is a restricted Google Doc titled **"vFairs Marketing OS — Credentials Vault"**. The repo admin shares it with you as a Viewer. If you can't find it in your Google Drive, ask the admin (today: Aatir) for the link.
 
-The vault has two things you need to copy:
+The Doc has two things you need to copy:
 
 ### 4a. Copy the `.env` template values
 
@@ -145,7 +145,7 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Open `.env` in any text editor (Cursor, VS Code, Notepad). Open the vault entry "vFairs Marketing OS .env values" and paste each value into your `.env` file. Save.
+Open `.env` in any text editor (Cursor, VS Code, Notepad). In the credentials Google Doc, find the "Shared credentials" section and copy each value into your local `.env` file. Save.
 
 Values you'll be copying:
 - HubSpot read-only token
@@ -156,7 +156,7 @@ Values you'll be copying:
 
 ### 4b. Download the shared Google service account JSON
 
-In the vault, find **"google-credentials.json"** under "vFairs Marketing OS". Download it. Place it in the repo at:
+In the credentials Google Doc, scroll to the **"Service Account JSON"** section. There's an attached file `google-credentials.json` — right-click → Download. Place it in the repo at:
 
 **Mac:**
 ```
