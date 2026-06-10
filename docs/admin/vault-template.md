@@ -12,11 +12,12 @@ Replace every `<TO FILL>` with the actual value as you generate it through `/adm
 
 **Last rotated:** `<DATE>`
 **Admin:** `<NAME>` (`<email>@vfairs.com`)
-**Repo:** https://github.com/aatirar/vfairs-marketing-ops
+**Repo:** [https://github.com/aatirar/vfairs-marketing-ops](https://github.com/aatirar/vfairs-marketing-ops)
 
 ## How to use this vault
 
 If you're a new marketer:
+
 1. You should have View access to this Doc
 2. Clone the repo: `git clone https://github.com/aatirar/vfairs-marketing-ops`
 3. Open Claude Code in the repo: `claude`
@@ -25,6 +26,7 @@ If you're a new marketer:
 6. Download `google-credentials.json` (attachment at the bottom of this Doc) and place it at `.config/google-credentials.json` in the repo
 
 **Hard rules:**
+
 - Do not share this Doc URL outside the team
 - Do not screenshot any section of this Doc
 - Do not paste any value below into Slack, email, or any chat
@@ -38,11 +40,12 @@ If you're a new marketer:
 # ─── HubSpot (read-only) ──────────────────────────────────────────────
 HUBSPOT_ACCESS_TOKEN=<TO FILL>
 
-# ─── Google Ads (shared marketing-bot account) ────────────────────────
+# ─── Google Ads (dev token + OAuth client shared; refresh token is PER-MARKETER) ───
 GOOGLE_ADS_DEVELOPER_TOKEN=<TO FILL>
 GOOGLE_ADS_CLIENT_ID=<TO FILL>
 GOOGLE_ADS_CLIENT_SECRET=<TO FILL>
-GOOGLE_ADS_REFRESH_TOKEN=<TO FILL>
+# GOOGLE_ADS_REFRESH_TOKEN is NOT in the vault — each marketer mints their own by
+# running: python3 setup/generate-google-ads-token.py  (signed in as themselves)
 GOOGLE_ADS_LOGIN_CUSTOMER_ID=<TO FILL>
 
 # ─── GA4 (auth via service account JSON, this is just the property) ───
@@ -81,10 +84,12 @@ GOOGLE_OAUTH_CLIENT_SECRET=<TO FILL>
 
 These are NOT in this vault. You create your own as part of `/onboarding`.
 
-| Value | How you'll get it |
-|---|---|
-| `SLACK_USER_TOKEN` | `/onboarding` will direct you to install the vFairs Marketing OS Slack app and copy your user token (starts with `xoxp-...`). Paste into your local `.env`. |
+
+| Value                                 | How you'll get it                                                                                                                                                                                                      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SLACK_USER_TOKEN`                    | `/onboarding` will direct you to install the vFairs Marketing OS Slack app and copy your user token (starts with `xoxp-...`). Paste into your local `.env`.                                                            |
 | Personal Gmail + Calendar OAuth token | `/onboarding` runs `python scripts/utils/generate-workspace-token.py <your-email>@vfairs.com`. Browser opens. You sign in as yourself. Token caches at `~/.google_workspace_mcp/credentials/`. No `.env` entry needed. |
+
 
 ---
 
@@ -94,6 +99,7 @@ These are NOT in this vault. You create your own as part of `/onboarding`.
 **Where to place locally:** `.config/google-credentials.json` in the repo
 **Service account email:** `<TO FILL>` (e.g. `vfairs-marketing-os@<project>.iam.gserviceaccount.com`)
 **Permissions granted:**
+
 - GA4 property `269289033` (Viewer)
 - Search Console property (Owner — GSC API requires Owner)
 - MQL Google Sheet (Viewer)
@@ -109,21 +115,25 @@ Right-click the attachment → Download. Save to your repo at `.config/google-cr
 
 These should be hidden in a separate restricted section of the Doc visible only to admins.
 
-| Item | Value |
-|---|---|
-| marketing-bot@vfairs.com password | `<TO FILL>` (used to mint Google Ads refresh tokens) |
-| HubSpot Private App URL | `<TO FILL>` |
-| n8n admin URL + API key | `<TO FILL>` |
-| Google Cloud project ID | `<TO FILL>` |
-| Service account creation date | `<TO FILL>` |
-| Last credential rotation log | `<TO FILL — keep a running list of "rotated X on YYYY-MM-DD">` |
+
+| Item                                                                 | Value                                                          |
+| -------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Google Ads dev token owner / API Center account                      | `<TO FILL>` (there is NO shared bot account; refresh tokens are per-marketer) |
+| HubSpot Private App URL                                              | `<TO FILL>`                                                    |
+| n8n admin URL + API key                                              | `<TO FILL>`                                                    |
+| Google Cloud project ID                                              | `<TO FILL>`                                                    |
+| Service account creation date                                        | `<TO FILL>`                                                    |
+| Last credential rotation log                                         | `<TO FILL — keep a running list of "rotated X on YYYY-MM-DD">` |
+
 
 ---
 
 ## Rotation history
 
-| Date | Credential | Reason | Notified team in |
-|---|---|---|---|
+
+| Date           | Credential     | Reason                                    | Notified team in |
+| -------------- | -------------- | ----------------------------------------- | ---------------- |
 | `<YYYY-MM-DD>` | `<credential>` | `<scheduled rotation / leak / departure>` | `#marketing-ops` |
+
 
 Keep this table updated. Every rotation = new row.

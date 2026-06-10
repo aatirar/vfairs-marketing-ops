@@ -127,7 +127,11 @@ cd vFairs-Marketing-OS
 
 ## Step 4: Get credentials from the team vault
 
-The team vault is a restricted Google Doc titled **"vFairs Marketing OS — Credentials Vault"**. The repo admin shares it with you as a Viewer. If you can't find it in your Google Drive, ask the admin (today: Aatir) for the link.
+The team vault is a restricted Google Doc titled **"vFairs Marketing OS — Credentials Vault"**:
+
+**https://docs.google.com/document/d/1DHn-wwKZq7VtHuCRZXjLTfo28GJ7YrI2PSrjedG1TBc/edit**
+
+The repo admin shares it with you as a Viewer. If the link says you need access, ask the admin (today: Aatir) to add you.
 
 The Doc has two things you need to copy:
 
@@ -240,6 +244,11 @@ cd ..\..
 
 This script detects all the paths on your machine and writes the `.mcp.json` file Claude Code needs.
 
+**Mac** (use `python3` — plain `python` usually isn't installed on macOS):
+```
+python3 setup/configure.py
+```
+**Windows:**
 ```
 python setup/configure.py
 ```
@@ -291,21 +300,26 @@ If you got data: **you're done.** Welcome to the team.
 
 Claude Code reads `.mcp.json` at the repo root.
 1. Make sure you're running `claude` from the repo root (where `.mcp.json` lives, not from a subfolder)
-2. Run `python setup/configure.py` to regenerate
+2. Run `python3 setup/configure.py` (Windows: `python setup/configure.py`) to regenerate
 3. Restart: `/exit`, then `claude`
 
 ### Google Ads: "invalid_grant" or "refresh token expired"
 
-The shared refresh token in `.env` may have been rotated. Re-fetch from the vault and replace in `.env`.
+Google Ads refresh tokens are **per-marketer** (there's no shared bot account). Re-mint yours by running `python3 setup/generate-google-ads-token.py` signed in as yourself, then re-run `python3 setup/configure.py`.
 
 ### Search Console: "no data" or "permission denied"
 
 The shared service account email must be added as a user on the vFairs GSC property. Ask Aatir to confirm. The email is in the service account JSON under `"client_email"`.
 
-### "No module named yaml" or similar Python errors
+### "No module named yaml" / "No module named dotenv" or similar Python errors
 
+**Mac:**
 ```
-pip install google-auth-oauthlib pyyaml google-api-python-client
+python3 -m pip install --user google-auth-oauthlib pyyaml google-api-python-client python-dotenv
+```
+**Windows:**
+```
+pip install google-auth-oauthlib pyyaml google-api-python-client python-dotenv
 ```
 
 ### MQL report says "auth error"
@@ -320,7 +334,7 @@ The HubSpot token in `.env` was rotated. Re-fetch from the vault.
 
 ```
 chmod +x setup/configure.py
-python setup/configure.py
+python3 setup/configure.py
 ```
 
 ---

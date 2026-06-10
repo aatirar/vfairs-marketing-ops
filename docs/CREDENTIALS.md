@@ -23,7 +23,7 @@ The vault is a single Google Doc with these sections (template lives at `docs/ad
 |---|---|---|
 | Shared credentials | All shared API keys + tokens, formatted to paste into `.env` | All marketers (Viewer access) |
 | Service Account JSON (attachment) | `google-credentials.json` for GA4 + GSC + Sheets | All marketers (download as file) |
-| Admin-only entries | marketing-bot password, HubSpot Private App URL, n8n admin URL, Google Cloud project ID | Admin only — hidden section |
+| Admin-only entries | HubSpot Service Key URL, n8n admin URL, Google Cloud project ID (`proven-grin-471823-k8`) | Admin only — hidden section |
 | Rotation history | Running log of every credential rotation with dates and reasons | All marketers (Viewer) |
 
 **Admin to fill in:** the live vault Doc URL goes in `docs/ONBOARDING.md` Step 4. Replace the placeholder text after running `/admin-setup`.
@@ -36,11 +36,10 @@ Every marketer pastes these into their local `.env`.
 
 | Env var | What it is | Scope | Used by |
 |---|---|---|---|
-| `HUBSPOT_ACCESS_TOKEN` | HubSpot private app token | Read-only on contacts, companies, deals, lists | `/mql-report`, `/find-whales`, `/voc-profiler`, hubspot MCP |
+| `HUBSPOT_ACCESS_TOKEN` | HubSpot read-only **Service Key** (replaces legacy private app) | Read-only on contacts, companies, deals, lists | `/mql-report`, `/find-whales`, `/voc-profiler`, hubspot MCP |
 | `GOOGLE_ADS_DEVELOPER_TOKEN` | vFairs Google Ads developer token | Required header for all Google Ads API calls | `/google-ads-audit`, google-ads MCP |
-| `GOOGLE_ADS_CLIENT_ID` | OAuth client ID for the marketing-bot Workspace account | Identifies the app | google-ads MCP |
+| `GOOGLE_ADS_CLIENT_ID` | OAuth client ID for the shared Google Ads app | Identifies the app | google-ads MCP |
 | `GOOGLE_ADS_CLIENT_SECRET` | OAuth client secret | Pairs with client_id | google-ads MCP |
-| `GOOGLE_ADS_REFRESH_TOKEN` | Long-lived refresh token from marketing-bot account | Read-only on the vFairs Google Ads account | google-ads MCP |
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | vFairs Google Ads customer ID (10 digits, no dashes) | Identifies which account to query | google-ads MCP |
 | `GA4_PROPERTY_ID` | vFairs GA4 property ID (`269289033`) | Identifies which property | google-analytics MCP, `/mql-report` |
 | `GONG_API_KEY` | Shared marketing-team Gong API key | Read-only on calls + transcripts | `/gong-weekly-analysis`, `/gong-ytd-analysis`, `/fetch-gong-calls` |
@@ -74,6 +73,7 @@ If GSC or GA4 fails for a marketer, the fix is **never** "have them re-auth." Th
 | Env var | What it is | How to generate |
 |---|---|---|
 | `SLACK_USER_TOKEN` | OAuth user token from the "vFairs Marketing OS" Slack app | See ONBOARDING.md Step 4c |
+| `GOOGLE_ADS_REFRESH_TOKEN` | Per-marketer Google Ads refresh token. **There is no shared bot account** — each marketer mints their own by running `python3 setup/generate-google-ads-token.py` signed in with their own vFairs Google account. Access is gated by that person's actual Google Ads permissions. Written to `.config/google-ads.yaml`, then mirrored into `.env`. | See ONBOARDING.md |
 
 ### Google Workspace OAuth (Gmail + Calendar)
 
@@ -90,7 +90,7 @@ When onboarding a new vFairs marketer:
 1. **Vault**: Invite them to the "vFairs Marketing OS" section
 2. **GitHub**: Add as collaborator on `aatirar/vfairs-marketing-ops`
 3. **GA4**: They DON'T need individual access. The shared service account already covers them
-4. **Google Ads**: They DON'T need individual access. The shared refresh token already covers them
+4. **Google Ads**: They DO need their own access. There's no shared bot account — the marketer must have Google Ads permission and mint their own refresh token via `python3 setup/generate-google-ads-token.py` (signed in as themselves). The dev token + OAuth client are shared from the vault; the refresh token is personal
 5. **Search Console**: They DON'T need individual access. The shared service account already covers them
 6. **HubSpot**: They DON'T need individual access. The shared read-only token already covers them
 7. **Gong**: They DON'T need a Gong account. The shared marketing-team API key covers them
@@ -106,9 +106,9 @@ If a shared credential leaks or needs rotation:
 
 | Credential | Rotate at | Action |
 |---|---|---|
-| HubSpot token | hubspot.com → Settings → Private Apps → "Marketing OS" → Rotate token | Update `HUBSPOT_ACCESS_TOKEN` in vault. Notify team |
-| Google Ads refresh token | Run `python setup/generate-google-ads-token.py` while signed in as `marketing-bot@vfairs.com` | Update `GOOGLE_ADS_REFRESH_TOKEN` in vault. Notify team |
-| GA4 / GSC service account | console.cloud.google.com → IAM → Service Accounts → "marketing-os" → Add Key → JSON | Replace `google-credentials.json` in vault. Notify team |
+| HubSpot token | hubspot.com → Settings → Integrations → Service Keys → "vFairs Marketing OS (Read-only)" → rotate/regenerate (legacy private apps: Private Apps → Rotate token) | Update `HUBSPOT_ACCESS_TOKEN` in vault. Notify team |
+| Google Ads refresh token | **Per-marketer, not central.** Each marketer re-runs `python3 setup/generate-google-ads-token.py` signed in as themselves. Nothing to rotate in the vault | Marketer updates their own `.config/google-ads.yaml` + `.env` |
+| GA4 / GSC service account | console.cloud.google.com → IAM → Service Accounts → `vfairs-marketing-os@proven-grin-471823-k8.iam.gserviceaccount.com` → Keys → Add Key → JSON | Replace `google-credentials.json` in vault. Notify team |
 | Gong key | Gong → Settings → API → Regenerate | Update `GONG_API_KEY` + `GONG_API_SECRET` in vault. Notify team |
 | Ahrefs / Semrush / Apify / Tavily / Smartlead / Gemini / RapidAPI | Rotate in respective dashboard | Update env var in vault. Notify team |
 

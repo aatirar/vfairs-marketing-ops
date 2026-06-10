@@ -97,7 +97,7 @@ Setting up Google Ads, GSC, and GA4 has historically been the biggest pain point
 |---|---|---|
 | GA4 | Service account JSON, set property ID | Same. Shared JSON, drop in `.config/` |
 | GSC | Individual OAuth per marketer (browser flow) | Shared service account, added as user on GSC property. No OAuth |
-| Google Ads | Individual OAuth + per-user refresh token | Shared refresh token from `marketing-bot@vfairs.com`. Paste 4 values in `.env`, done |
+| Google Ads | Individual OAuth + per-user refresh token | Shared dev token + OAuth client from the vault. Refresh token is per-marketer (no shared bot account): each marketer runs `python3 setup/generate-google-ads-token.py` once, signed in as themselves |
 | HubSpot | Personal access token | Shared read-only private app token |
 | Gong | Per-user API key | Shared marketing-team API key (read-only) |
 
